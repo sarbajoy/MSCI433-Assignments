@@ -1,0 +1,59 @@
+parole= read.csv("Downloads/Parole.csv")
+library(caTools)
+set.seed(1951)
+parole$split = sample.split(parole$Violator,SplitRatio=0.7)
+train = subset(parole, split==TRUE)
+test = subset(parole, split==FALSE)
+
+## question1
+nrow(train)
+table(train$Male)
+table(train$RaceWhite)
+table(train$State)
+table(train$MultipleOffenses)
+table(train$Crime)
+table(train$Violator)
+summary(train)
+
+##question2
+library(ggplot2)
+str(train)
+plotCrimeMaxSentence = ggplot(train, aes(x=Crime, y=MaxSentence)) + geom_boxplot(fill="slateblue", alpha=0.2) +ggtitle("Sentence by Crime") + theme_bw() + theme(plot.title=element_text(hjust=0.5, face="bold"), axis.title=element_text(size=12,color="black",face="bold"),panel.grid.major=element_blank(),panel.grid.minor=element_blank())
+ggsave("CrimeSentence.pdf",plotCrimeMaxSentence,width=6,height=6, units="in")
+countStateViolator <- table(train$State, train$Violator)
+barplot(countStateViolator, main="Violators by State",xlab="States", col=c("darkblue","red","green","purple"),legend = rownames(countStateViolator), beside=TRUE)
+countStateCrime <- table(train$State, train$Crime)
+barplot(countStateCrime, main="Crimes by State",xlab="States", col=c("darkblue","red","green","purple"),legend = rownames(countStateCrime), beside=TRUE)
+countCrimeViolator <- table(train$Crime, train$Violator)
+barplot(countCrimeViolator, main="Violators by Crime",xlab="Crime", col=c("darkblue","red","green","purple"),legend = rownames(countCrimeViolator), beside=TRUE)
+countRaceViolator <- table(train$RaceWhite, train$Violator)
+barplot(countRaceViolator, main="Violators by Race",xlab="Race", col=c("black","white"),legend = rownames(countRaceViolator), beside=TRUE)
+countGenderViolator <- table(train$Male, train$Violator)
+barplot(countGenderViolator, main="Violators by Gender",xlab="Race", col=c("pink","blue"),legend = rownames(countGenderViolator), beside=TRUE)
+
+
+##Log Regression
+ParoleViolator=glm(Violator~Male+RaceWhite+Age+State+TimeServed+MaxSentence+MultipleOffenses+Crime, data=train,family=binomial)
+summary(ParoleViolator)
+
+##predicting prisoner's chance of violating parole
+prisonMike=data.frame(Male=1,RaceWhite=1,Age=50,State="Other",TimeServed=3.0, MaxSentence=12, MultipleOffenses=0,Crime="Larceny")
+predict(ParoleViolator, prisonMike,type="response")
+
+
+##Confusion matrix
+predictTest = predict(ParoleViolator, type = "response", newdata = test)
+table(test$Violator, predictTest>0.5)
+5/(5+174) #false positive
+17/(17+6) #false negative
+(174+6)/(174+5+6+17) #overall accuracy
+
+##Baseline Confusion
+table(test$Violator)
+179/(179+23)
+
+#AUC
+install.packages("ROCR")
+library(ROCR)
+ROCRpred = prediction(predictTest, test$Violator)
+as.numeric(performance(ROCRpred, "auc")@y.values)
